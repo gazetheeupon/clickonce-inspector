@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Free ClickOnce Inspector — Verify & Extract a ClickOnce App Online</title>
+<meta name="description" content="Open a ClickOnce deployment (.application manifest plus its .manifest and .deploy files) and see exactly what it installs before you trust it: publisher, entry point, trust level, and every file's hash verified. Extract real filenames back out. Entirely in your browser.">
+<link rel="stylesheet" href="https://gazetheeupon.github.io/shared-assets/theme.css?v=2">
+<link rel="canonical" href="https://gazetheeupon.github.io/clickonce-inspector/">
+<meta property="og:title" content="Free ClickOnce Inspector">
+<meta property="og:description" content="See what a ClickOnce deployment installs before you trust it, and recover its real filenames from renamed .deploy files. Entirely in your browser.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://gazetheeupon.github.io/clickonce-inspector/">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Free ClickOnce Inspector">
+<meta name="twitter:description" content="See what a ClickOnce deployment installs before you trust it, and recover its real filenames from renamed .deploy files. Entirely in your browser.">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Free ClickOnce Inspector",
+  "url": "https://gazetheeupon.github.io/clickonce-inspector/",
+  "description": "Open a ClickOnce deployment (.application manifest plus its .manifest and .deploy files) and see exactly what it installs before you trust it: publisher, entry point, trust level, and every file's hash verified against the manifest. Entirely in your browser.",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "Any (runs in web browser)",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+<style>
+  :root{--bg:#0f1720;--card:#1a2532;--text:#e8edf2;--muted:#93a3b3;--accent:#4fa8ff;--border:#2a3745;--good:#5fd68a;--bad:#ff8080;--warn:#ffcf8a;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;}
+  header{padding:2rem 1rem 1rem;text-align:center;}
+  h1{font-size:1.6rem;margin:0 0 .4rem;}
+  p.sub{color:var(--muted);margin:0 auto;max-width:680px;}
+  main{max-width:840px;margin:0 auto;padding:1.5rem 1rem 3rem;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.5rem;margin-bottom:1.2rem;}
+  .dropzone{border:2px dashed var(--border);border-radius:10px;padding:2.2rem 1rem;text-align:center;cursor:pointer;transition:border-color .15s;}
+  .dropzone.drag{border-color:var(--accent);}
+  .dropzone input{display:none;}
+  .dropzone .hint{color:var(--muted);font-size:.9rem;margin-top:.4rem;}
+  .fname{font-size:.85rem;color:var(--text);margin-top:.6rem;word-break:break-all;}
+  #status{color:var(--muted);font-size:.9rem;margin-top:.8rem;min-height:1.2em;white-space:pre-line;}
+  #status.error{color:var(--bad);}
+  h2{font-size:1rem;margin:0 0 .8rem;color:var(--text);}
+  table.kv{width:100%;border-collapse:collapse;font-size:.85rem;margin-top:.2rem;}
+  table.kv td{padding:.35rem .5rem;border-bottom:1px solid var(--border);vertical-align:top;}
+  table.kv td:first-child{color:var(--muted);width:34%;white-space:nowrap;}
+  table.files{width:100%;border-collapse:collapse;font-size:.83rem;}
+  table.files td,table.files th{padding:.4rem .5rem;border-bottom:1px solid var(--border);text-align:left;}
+  table.files td:first-child{word-break:break-all;}
+  .size-cell{color:var(--muted);white-space:nowrap;text-align:right;}
+  .status-verified{color:var(--good);font-weight:600;}
+  .status-mismatch{color:var(--bad);font-weight:700;}
+  .status-missing{color:var(--muted);font-style:italic;}
+  .status-present{color:var(--text);}
+  #filesWrap{max-height:420px;overflow:auto;border:1px solid var(--border);border-radius:8px;}
+  #filesWrap table{margin:0;}
+  #exportRow{display:flex;gap:.6rem;margin-top:1rem;flex-wrap:wrap;}
+  button.exp{background:transparent;border:1px solid var(--accent);color:var(--accent);border-radius:8px;padding:.55rem 1.1rem;font-size:.88rem;font-weight:600;cursor:pointer;}
+  #warningsList{margin:.4rem 0 0;padding-left:1.2rem;color:var(--warn);font-size:.85rem;}
+  .privacy{font-size:.85rem;color:var(--muted);}
+  .privacy strong{color:var(--text);}
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What files do I drop in?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Either a ZIP of the whole published ClickOnce folder (or your local ClickOnce app cache folder), or the individual files loose: the .application (or .vsto) deployment manifest, the .manifest application manifest it references, and the payload files -- which may have a literal .deploy suffix appended to their real name."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why do some files show as \"missing\"?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The manifest declares every file the app is supposed to include, but this page can only check the ones you actually provided. Drop in more of the folder's files to verify them too -- \"missing\" doesn't mean something is wrong, it means that file wasn't in this batch."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What does a HASH MISMATCH mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The manifest declares a specific SHA-1/SHA-256 hash for that file, computed when it was published. If the file you provided hashes to something different, its content has changed since publishing -- from corruption, a partial download, or tampering. It does not necessarily mean malicious intent, but it means the file no longer matches what the app's own manifest says it should be."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does this run or install the application?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. This page only reads the XML manifests and hashes the files you provide -- it never executes anything, and it never installs the application."
+      }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header>
+  <h1>ClickOnce Inspector</h1>
+  <p class="sub">Drop in a ClickOnce deployment &mdash; the <code>.application</code> manifest, its <code>.manifest</code>, and the payload files (often renamed with a <code>.deploy</code> suffix) &mdash; to see exactly what it installs, verify every file's hash, and recover the real filenames.</p>
+</header>
+<main>
+  <div class="card">
+    <div class="dropzone" id="dropzone">
+      <div>Drop a ClickOnce folder's files (or a ZIP of it) here, or click to choose</div>
+      <div class="hint">The .application manifest, its .manifest, and payload files &mdash; all read locally, nothing uploaded</div>
+      <input type="file" id="fileInput" multiple accept=".application,.vsto,.manifest,.deploy,.zip,*">
+    </div>
+    <div class="fname" id="fname"></div>
+    <div id="status"></div>
+  </div>
+
+  <div class="card" id="identityCard" style="display:none;">
+    <h2>Identity</h2>
+    <table class="kv" id="identityBody"></table>
+  </div>
+
+  <div class="card" id="filesCard" style="display:none;">
+    <h2>Files</h2>
+    <div id="filesWrap">
+      <table class="files">
+        <thead><tr><th>File</th><th>Size</th><th>Status</th></tr></thead>
+        <tbody id="filesBody"></tbody>
+      </table>
+    </div>
+    <div id="exportRow">
+      <button class="exp" id="downloadRecoveredBtn">Download recovered app (real filenames, ZIP)</button>
+      <button class="exp" id="exportJsonBtn">Export report (JSON)</button>
+    </div>
+  </div>
+
+  <div class="card" id="warningsCard" style="display:none;">
+    <h2>Notes</h2>
+    <ul id="warningsList"></ul>
+  </div>
+
+  <div class="card">
+    <p class="privacy"><strong>How this works:</strong> ClickOnce publishes an app as two small XML manifests plus its payload files. This page parses those manifests directly in your browser tab, matches each declared file against what you dropped in (stripping any <code>.deploy</code> suffix), and recomputes each file's hash with the Web Crypto API to check it against what the manifest declares. Nothing is uploaded anywhere.</p>
+    <p class="privacy" style="margin-top:.6rem;"><strong>Why check first:</strong> a ClickOnce app installed straight from a trusted publisher's site goes through Windows' own signature/trust prompts, but a <code>.application</code> folder mirrored, emailed, or pulled from a cache doesn't always carry that context with it. This page lets you see the publisher, trust level, and entry point it declares, and confirm the files haven't changed since publishing, before you run <code>setup.exe</code> or open the <code>.application</code> file yourself.</p>
+  </div>
+
+  <div class="card faq">
+    <h2>Troubleshooting</h2>
+    <details><summary>What files do I drop in?</summary>
+      <p>Either a ZIP of the whole published ClickOnce folder (or your local ClickOnce app cache folder), or the individual files loose: the <code>.application</code> (or <code>.vsto</code>) deployment manifest, the <code>.manifest</code> application manifest it references, and the payload files &mdash; which may have a literal <code>.deploy</code> suffix appended to their real name.</p>
+    </details>
+    <details><summary>Why do some files show as "missing"?</summary>
+      <p>The manifest declares every file the app is supposed to include, but this page can only check the ones you actually provided. Drop in more of the folder's files to verify them too &mdash; "missing" doesn't mean something is wrong, it means that file wasn't in this batch.</p>
+    </details>
+    <details><summary>What does a HASH MISMATCH mean?</summary>
+      <p>The manifest declares a specific SHA-1/SHA-256 hash for that file, computed when it was published. If the file you provided hashes to something different, its content has changed since publishing &mdash; from corruption, a partial download, or tampering. It does not necessarily mean malicious intent, but it means the file no longer matches what the app's own manifest says it should be.</p>
+    </details>
+    <details><summary>Does this run or install the application?</summary>
+      <p>No. This page only reads the XML manifests and hashes the files you provide &mdash; it never executes anything, and it never installs the application.</p>
+    </details>
+  </div>
+
+  <div id="ad-slot"></div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/jszip/dist/jszip.min.js"></script>
+<script src="clickonce-parser.js"></script>
+<script src="app.js"></script>
+<script defer src="https://gazetheeupon.github.io/shared-assets/site.js"></script>
+</body>
+</html>
